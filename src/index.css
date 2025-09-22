@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Academic color palette */
+    --background: 0 0% 98%;
+    --foreground: 222 47% 11%;
+    
+    /* Primary - Deep academic blue */
+    --primary: 217 91% 45%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 217 91% 60%;
+    
+    /* Secondary - Mint green for success */
+    --secondary: 162 63% 85%;
+    --secondary-foreground: 162 63% 20%;
+    
+    /* Accent - Warm coral for highlights */
+    --accent: 14 89% 65%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* Muted colors */
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    
+    /* Card styles */
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --card-hover: 210 40% 98%;
+    
+    /* Popover */
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    
+    /* Destructive */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    
+    /* Borders and inputs */
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 217 91% 45%;
+    
+    /* Radius */
+    --radius: 0.75rem;
+    
+    /* Sidebar */
+    --sidebar-background: 217 91% 97%;
+    --sidebar-foreground: 217 91% 15%;
+    --sidebar-primary: 217 91% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 91% 92%;
+    --sidebar-accent-foreground: 217 91% 15%;
+    --sidebar-border: 217 91% 85%;
+    --sidebar-ring: 217 91% 45%;
+    
+    /* Custom gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 45%), hsl(217 91% 60%));
+    --gradient-secondary: linear-gradient(135deg, hsl(162 63% 85%), hsl(162 63% 70%));
+    --gradient-hero: linear-gradient(135deg, hsl(217 91% 45%), hsl(162 63% 70%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(210 40% 98%));
+    
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(217 91% 45% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(217 91% 45% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(217 91% 45% / 0.1);
+    --shadow-glow: 0 0 20px hsl(217 91% 60% / 0.3);
+    
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-spring: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  .dark {
+    --background: 222 47% 7%;
+    --foreground: 210 40% 98%;
+    
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 11%;
+    --primary-glow: 217 91% 70%;
+    
+    --secondary: 162 63% 40%;
+    --secondary-foreground: 162 63% 95%;
+    
+    --accent: 14 89% 55%;
+    --accent-foreground: 0 0% 100%;
+    
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    
+    --card: 222 47% 10%;
+    --card-foreground: 210 40% 98%;
+    --card-hover: 222 47% 12%;
+    
+    --popover: 222 47% 10%;
+    --popover-foreground: 210 40% 98%;
+    
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+    
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 217 91% 60%;
+    
+    --sidebar-background: 222 47% 9%;
+    --sidebar-foreground: 210 40% 95%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 222 47% 11%;
+    --sidebar-accent: 222 47% 15%;
+    --sidebar-accent-foreground: 210 40% 95%;
+    --sidebar-border: 217 33% 20%;
+    --sidebar-ring: 217 91% 60%;
+    
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(217 91% 45%));
+    --gradient-secondary: linear-gradient(135deg, hsl(162 63% 40%), hsl(162 63% 30%));
+    --gradient-hero: linear-gradient(135deg, hsl(217 91% 60%), hsl(162 63% 40%));
+    --gradient-card: linear-gradient(145deg, hsl(222 47% 10%), hsl(222 47% 8%));
+    
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.3);
+    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.3);
+    --shadow-glow: 0 0 20px hsl(217 91% 60% / 0.2);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
