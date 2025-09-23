@@ -2,15 +2,18 @@ import { Header } from '@/components/layout/Header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, FileText, ClipboardList, Bell, Users, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useDashboardStats, useDashboardActivity } from '@/hooks/useDashboard';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { data: stats } = useDashboardStats();
+  const { data: activity } = useDashboardActivity();
 
-  const stats = [
-    { label: 'Classes Today', value: '4', icon: Calendar, color: 'text-primary' },
-    { label: 'Shared Notes', value: '12', icon: FileText, color: 'text-secondary-foreground' },
-    { label: 'Pending Tasks', value: '7', icon: ClipboardList, color: 'text-accent' },
-    { label: 'Reminders', value: '3', icon: Bell, color: 'text-primary' },
+  const statCards = [
+    { label: 'Classes Today', value: String(stats?.todayTimetable?.length ?? 0), icon: Calendar, color: 'text-primary' },
+    { label: 'Notes', value: String(stats?.notes?.total ?? 0), icon: FileText, color: 'text-secondary-foreground' },
+    { label: 'Assignments Pending', value: String(stats?.assignments?.pending ?? 0), icon: ClipboardList, color: 'text-accent' },
+    { label: 'Upcoming Reminders', value: String(stats?.upcomingReminders ?? 0), icon: Bell, color: 'text-primary' },
   ];
 
   const quickActions = [
@@ -29,9 +32,8 @@ export default function Dashboard() {
           <p className="text-muted-foreground">Here's your academic overview for today</p>
         </div>
 
-        {/* Stats Grid */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-          {stats.map((stat, index) => {
+          {statCards.map((stat, index) => {
             const Icon = stat.icon;
             return (
               <Card key={index} className="hover:shadow-lg transition-shadow">
@@ -47,7 +49,6 @@ export default function Dashboard() {
           })}
         </div>
 
-        {/* Quick Actions */}
         <div className="mb-8">
           <h2 className="text-2xl font-semibold mb-4">Quick Actions</h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -76,7 +77,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Recent Activity */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -86,27 +86,15 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center gap-4 p-3 rounded-lg bg-muted">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Physics Notes uploaded</p>
-                  <p className="text-xs text-muted-foreground">2 hours ago</p>
+              {(activity ?? []).map((item, idx) => (
+                <div key={idx} className="flex items-center gap-4 p-3 rounded-lg bg-muted">
+                  <span className="text-xs uppercase text-muted-foreground">{item.type}</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{item.title ?? item.type}</p>
+                    <p className="text-xs text-muted-foreground">{new Date(item.updatedAt).toLocaleString()}</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-4 p-3 rounded-lg bg-muted">
-                <ClipboardList className="h-4 w-4 text-muted-foreground" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Math Assignment completed</p>
-                  <p className="text-xs text-muted-foreground">5 hours ago</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 p-3 rounded-lg bg-muted">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Joined "Web Development" project group</p>
-                  <p className="text-xs text-muted-foreground">Yesterday</p>
-                </div>
-              </div>
+              ))}
             </div>
           </CardContent>
         </Card>

@@ -9,206 +9,47 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Bell, BellRing, Plus, Calendar, Clock, Edit, Trash2, AlertCircle } from 'lucide-react';
+import { Bell, BellRing, Plus, Calendar, Clock, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-interface Reminder {
-  id: string;
-  title: string;
-  description: string;
-  type: 'exam' | 'meeting' | 'deadline' | 'other';
-  dateTime: string;
-  isActive: boolean;
-  notifyBefore: '1hour' | '1day' | '1week';
-}
+import { useReminders, useCreateReminder, useUpdateReminder, useDeleteReminder } from '@/hooks/useReminders';
 
 export default function Reminders() {
   const { toast } = useToast();
-  const [reminders, setReminders] = useState<Reminder[]>([
-    {
-      id: '1',
-      title: 'Physics Midterm Exam',
-      description: 'Room 204, Building A. Bring calculator and ID.',
-      type: 'exam',
-      dateTime: '2024-01-25T09:00',
-      isActive: true,
-      notifyBefore: '1day'
-    },
-    {
-      id: '2',
-      title: 'Project Team Meeting',
-      description: 'Discuss final presentation and task allocation',
-      type: 'meeting',
-      dateTime: '2024-01-22T14:00',
-      isActive: true,
-      notifyBefore: '1hour'
-    },
-    {
-      id: '3',
-      title: 'Research Paper Submission',
-      description: 'Submit final draft to professor via email',
-      type: 'deadline',
-      dateTime: '2024-01-28T23:59',
-      isActive: true,
-      notifyBefore: '1week'
-    }
-  ]);
+  const { data, isLoading } = useReminders(1, 30);
+  const createReminder = useCreateReminder();
+  const updateReminder = useUpdateReminder();
+  const deleteReminder = useDeleteReminder();
+
+  const reminders = data?.items ?? [];
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+  const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState('all');
-  const [upcomingAlerts, setUpcomingAlerts] = useState<Reminder[]>([]);
+  const [upcomingAlerts, setUpcomingAlerts] = useState<any[]>([]);
   
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    type: 'other' as Reminder['type'],
     dateTime: '',
-    notifyBefore: '1day' as Reminder['notifyBefore']
+    notifyBefore: '1day'
   });
 
-  // Check for upcoming reminders
   useEffect(() => {
     const checkUpcomingReminders = () => {
       const now = new Date();
-      const upcoming = reminders.filter(reminder => {
-        if (!reminder.isActive) return false;
-        
-        const reminderTime = new Date(reminder.dateTime);
+      const upcoming = reminders.filter((r: any) => {
+        if (r.isCompleted) return false;
+        const reminderTime = new Date(r.reminderDate);
         const timeDiff = reminderTime.getTime() - now.getTime();
         const hoursDiff = timeDiff / (1000 * 60 * 60);
-        
-        // Check if reminder is within 24 hours
-        if (hoursDiff <= 24 && hoursDiff > 0) {
-          // Check if we should notify based on notifyBefore setting
-          if (reminder.notifyBefore === '1hour' && hoursDiff <= 1) return true;
-          if (reminder.notifyBefore === '1day' && hoursDiff <= 24) return true;
-          if (reminder.notifyBefore === '1week' && hoursDiff <= 168) return true;
-        }
-        return false;
+        return hoursDiff <= 24 && hoursDiff > 0;
       });
-      
       setUpcomingAlerts(upcoming);
     };
-
     checkUpcomingReminders();
-    const interval = setInterval(checkUpcomingReminders, 60000); // Check every minute
-    
+    const interval = setInterval(checkUpcomingReminders, 60000);
     return () => clearInterval(interval);
   }, [reminders]);
-
-  // Show notifications for upcoming alerts
-  useEffect(() => {
-    upcomingAlerts.forEach(alert => {
-      const reminderTime = new Date(alert.dateTime);
-      const now = new Date();
-      const hoursDiff = (reminderTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-      
-      if (hoursDiff <= 1) {
-        toast({
-          title: "⏰ Reminder Alert!",
-          description: `${alert.title} is coming up soon!`,
-          variant: "default"
-        });
-      }
-    });
-  }, [upcomingAlerts, toast]);
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'exam':
-        return '📝';
-      case 'meeting':
-        return '👥';
-      case 'deadline':
-        return '⏰';
-      default:
-        return '📌';
-    }
-  };
-
-  const getTypeColor = (type: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (type) {
-      case 'exam':
-        return 'destructive';
-      case 'meeting':
-        return 'secondary';
-      case 'deadline':
-        return 'default';
-      default:
-        return 'outline';
-    }
-  };
-
-  const handleSubmit = () => {
-    if (!formData.title || !formData.dateTime) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (editingReminder) {
-      setReminders(reminders.map(r => 
-        r.id === editingReminder.id 
-          ? { ...r, ...formData, isActive: true }
-          : r
-      ));
-      toast({
-        title: "Success",
-        description: "Reminder updated successfully",
-      });
-    } else {
-      const newReminder: Reminder = {
-        id: Date.now().toString(),
-        ...formData,
-        isActive: true
-      };
-      setReminders([newReminder, ...reminders]);
-      toast({
-        title: "Success",
-        description: "Reminder created successfully",
-      });
-    }
-
-    setDialogOpen(false);
-    setEditingReminder(null);
-    setFormData({
-      title: '',
-      description: '',
-      type: 'other',
-      dateTime: '',
-      notifyBefore: '1day'
-    });
-  };
-
-  const handleEdit = (reminder: Reminder) => {
-    setEditingReminder(reminder);
-    setFormData({
-      title: reminder.title,
-      description: reminder.description,
-      type: reminder.type,
-      dateTime: reminder.dateTime,
-      notifyBefore: reminder.notifyBefore
-    });
-    setDialogOpen(true);
-  };
-
-  const handleDelete = (id: string) => {
-    setReminders(reminders.filter(r => r.id !== id));
-    toast({
-      title: "Success",
-      description: "Reminder deleted successfully",
-    });
-  };
-
-  const handleToggleActive = (id: string) => {
-    setReminders(reminders.map(r => 
-      r.id === id ? { ...r, isActive: !r.isActive } : r
-    ));
-  };
 
   const formatDateTime = (dateTime: string) => {
     const date = new Date(dateTime);
@@ -222,22 +63,67 @@ export default function Reminders() {
     const now = new Date();
     const target = new Date(dateTime);
     const diff = target.getTime() - now.getTime();
-    
     if (diff < 0) return 'Past';
-    
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    
     if (days > 0) return `${days} day${days > 1 ? 's' : ''}`;
     if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''}`;
     return 'Soon';
   };
 
-  const filteredReminders = reminders.filter(reminder => {
+  const handleSubmit = async () => {
+    if (!formData.title || !formData.dateTime) {
+      toast({ title: 'Error', description: 'Please fill in all required fields', variant: 'destructive' });
+      return;
+    }
+    try {
+      const payload = { title: formData.title, description: formData.description, reminderDate: new Date(formData.dateTime).toISOString() };
+      if (editingReminderId) {
+        await updateReminder.mutateAsync({ id: editingReminderId, update: payload });
+        toast({ title: 'Reminder updated' });
+      } else {
+        await createReminder.mutateAsync(payload);
+        toast({ title: 'Reminder created' });
+      }
+      setDialogOpen(false);
+      setEditingReminderId(null);
+      setFormData({ title: '', description: '', dateTime: '', notifyBefore: '1day' });
+    } catch (err: any) {
+      toast({ title: 'Save failed', description: err?.response?.data?.error?.message ?? 'Try again', variant: 'destructive' });
+    }
+  };
+
+  const handleEdit = (reminder: any) => {
+    setEditingReminderId(reminder._id);
+    setFormData({
+      title: reminder.title || '',
+      description: reminder.description || '',
+      dateTime: reminder.reminderDate ? reminder.reminderDate.substring(0, 16) : '',
+      notifyBefore: '1day'
+    });
+    setDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteReminder.mutateAsync(id);
+      toast({ title: 'Reminder deleted' });
+    } catch (err: any) {
+      toast({ title: 'Delete failed', description: err?.response?.data?.error?.message ?? 'Try again', variant: 'destructive' });
+    }
+  };
+
+  const handleToggleCompleted = async (id: string, isCompleted: boolean) => {
+    try {
+      await updateReminder.mutateAsync({ id, update: { isCompleted } });
+    } catch {}
+  };
+
+  const filteredReminders = reminders.filter((r: any) => {
     if (filterType === 'all') return true;
-    if (filterType === 'active') return reminder.isActive;
-    if (filterType === 'inactive') return !reminder.isActive;
-    return reminder.type === filterType;
+    if (filterType === 'active') return !r.isCompleted;
+    if (filterType === 'inactive') return r.isCompleted;
+    return true;
   });
 
   return (
@@ -249,7 +135,6 @@ export default function Reminders() {
           <p className="text-muted-foreground">Never miss an important academic event</p>
         </div>
 
-        {/* Upcoming Alerts */}
         {upcomingAlerts.length > 0 && (
           <Card className="mb-6 border-primary/50 bg-primary/5">
             <CardHeader className="pb-3">
@@ -260,20 +145,15 @@ export default function Reminders() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {upcomingAlerts.map(alert => {
-                  const { date, time } = formatDateTime(alert.dateTime);
+                {upcomingAlerts.map((alert: any) => {
+                  const { date, time } = formatDateTime(alert.reminderDate);
                   return (
-                    <div key={alert.id} className="flex items-center justify-between p-2 rounded-lg bg-background">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xl">{getTypeIcon(alert.type)}</span>
-                        <div>
-                          <p className="font-medium">{alert.title}</p>
-                          <p className="text-sm text-muted-foreground">{date} at {time}</p>
-                        </div>
+                    <div key={alert._id} className="flex items-center justify-between p-2 rounded-lg bg-background">
+                      <div>
+                        <p className="font-medium">{alert.title}</p>
+                        <p className="text-sm text-muted-foreground">{date} at {time}</p>
                       </div>
-                      <Badge variant="default">
-                        {getTimeUntil(alert.dateTime)}
-                      </Badge>
+                      <Badge variant="default">{getTimeUntil(alert.reminderDate)}</Badge>
                     </div>
                   );
                 })}
@@ -282,7 +162,6 @@ export default function Reminders() {
           </Card>
         )}
 
-        {/* Actions Bar */}
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <Select value={filterType} onValueChange={setFilterType}>
             <SelectTrigger className="w-full md:w-[200px]">
@@ -292,10 +171,6 @@ export default function Reminders() {
               <SelectItem value="all">All Reminders</SelectItem>
               <SelectItem value="active">Active Only</SelectItem>
               <SelectItem value="inactive">Inactive Only</SelectItem>
-              <SelectItem value="exam">Exams</SelectItem>
-              <SelectItem value="meeting">Meetings</SelectItem>
-              <SelectItem value="deadline">Deadlines</SelectItem>
-              <SelectItem value="other">Other</SelectItem>
             </SelectContent>
           </Select>
           <Button onClick={() => setDialogOpen(true)} className="gap-2 ml-auto">
@@ -304,31 +179,15 @@ export default function Reminders() {
           </Button>
         </div>
 
-        {/* Reminders Grid */}
+        {isLoading && (<Card className="mb-4"><CardContent>Loading...</CardContent></Card>)}
+
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredReminders.map(reminder => {
-            const { date, time } = formatDateTime(reminder.dateTime);
-            const isPast = new Date(reminder.dateTime) < new Date();
-            
+          {filteredReminders.map((reminder: any) => {
+            const { date, time } = formatDateTime(reminder.reminderDate);
+            const isPast = new Date(reminder.reminderDate) < new Date();
             return (
-              <Card 
-                key={reminder.id} 
-                className={`${!reminder.isActive || isPast ? 'opacity-60' : ''} hover:shadow-lg transition-shadow`}
-              >
+              <Card key={reminder._id} className={`${reminder.isCompleted || isPast ? 'opacity-60' : ''} hover:shadow-lg transition-shadow`}>
                 <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">{getTypeIcon(reminder.type)}</span>
-                      <Badge variant={getTypeColor(reminder.type)}>
-                        {reminder.type}
-                      </Badge>
-                    </div>
-                    <Switch
-                      checked={reminder.isActive}
-                      onCheckedChange={() => handleToggleActive(reminder.id)}
-                      disabled={isPast}
-                    />
-                  </div>
                   <CardTitle className="text-lg mt-2">{reminder.title}</CardTitle>
                   <CardDescription>{reminder.description}</CardDescription>
                 </CardHeader>
@@ -342,36 +201,16 @@ export default function Reminders() {
                       <Clock className="h-4 w-4 text-muted-foreground" />
                       <span>{time}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Bell className="h-4 w-4 text-muted-foreground" />
-                      <span>Notify {reminder.notifyBefore.replace('1', '1 ')}</span>
-                    </div>
                   </div>
-                  {!isPast && (
-                    <Badge variant="outline" className="mb-3">
-                      {getTimeUntil(reminder.dateTime)} remaining
-                    </Badge>
-                  )}
-                  {isPast && (
-                    <Badge variant="outline" className="mb-3 text-muted-foreground">
-                      Past event
-                    </Badge>
-                  )}
                   <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => handleEdit(reminder)}
-                    >
+                    <Button size="sm" variant="outline" className="flex-1" onClick={() => handleEdit(reminder)}>
                       <Edit className="h-3 w-3 mr-1" />
                       Edit
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleDelete(reminder.id)}
-                    >
+                    <Button size="sm" variant="outline" className="flex-1" onClick={() => handleToggleCompleted(reminder._id, !reminder.isCompleted)}>
+                      {reminder.isCompleted ? 'Mark Active' : 'Mark Done'}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => handleDelete(reminder._id)}>
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
@@ -381,7 +220,7 @@ export default function Reminders() {
           })}
         </div>
 
-        {filteredReminders.length === 0 && (
+        {filteredReminders.length === 0 && !isLoading && (
           <Card className="text-center py-12">
             <CardContent>
               <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -390,94 +229,32 @@ export default function Reminders() {
           </Card>
         )}
 
-        {/* Add/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editingReminder ? 'Edit Reminder' : 'Create New Reminder'}</DialogTitle>
-              <DialogDescription>
-                Set up notifications for important academic events
-              </DialogDescription>
+              <DialogTitle>{editingReminderId ? 'Edit Reminder' : 'Create New Reminder'}</DialogTitle>
+              <DialogDescription>Set up notifications for important academic events</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>
                 <Label htmlFor="title">Title *</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({...formData, title: e.target.value})}
-                  placeholder="e.g., Physics Midterm Exam"
-                />
+                <Input id="title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="e.g., Physics Midterm Exam" />
               </div>
               <div>
                 <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  placeholder="Additional details..."
-                  rows={2}
-                />
-              </div>
-              <div>
-                <Label htmlFor="type">Type</Label>
-                <Select 
-                  value={formData.type} 
-                  onValueChange={(value) => setFormData({...formData, type: value as Reminder['type']})}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="exam">Exam</SelectItem>
-                    <SelectItem value="meeting">Meeting</SelectItem>
-                    <SelectItem value="deadline">Deadline</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Additional details..." rows={2} />
               </div>
               <div>
                 <Label htmlFor="dateTime">Date & Time *</Label>
-                <Input
-                  id="dateTime"
-                  type="datetime-local"
-                  value={formData.dateTime}
-                  onChange={(e) => setFormData({...formData, dateTime: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label htmlFor="notifyBefore">Notify Before</Label>
-                <Select 
-                  value={formData.notifyBefore} 
-                  onValueChange={(value) => setFormData({...formData, notifyBefore: value as Reminder['notifyBefore']})}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1hour">1 hour before</SelectItem>
-                    <SelectItem value="1day">1 day before</SelectItem>
-                    <SelectItem value="1week">1 week before</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Input id="dateTime" type="datetime-local" value={formData.dateTime} onChange={(e) => setFormData({ ...formData, dateTime: e.target.value })} />
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => {
-                setDialogOpen(false);
-                setEditingReminder(null);
-                setFormData({
-                  title: '',
-                  description: '',
-                  type: 'other',
-                  dateTime: '',
-                  notifyBefore: '1day'
-                });
-              }}>
+              <Button variant="outline" onClick={() => { setDialogOpen(false); setEditingReminderId(null); setFormData({ title: '', description: '', dateTime: '', notifyBefore: '1day' }); }}>
                 Cancel
               </Button>
-              <Button onClick={handleSubmit}>
-                {editingReminder ? 'Update' : 'Create'} Reminder
+              <Button onClick={handleSubmit} disabled={createReminder.isPending || updateReminder.isPending}>
+                {editingReminderId ? 'Update' : 'Create'} Reminder
               </Button>
             </DialogFooter>
           </DialogContent>

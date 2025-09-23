@@ -3,9 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Plus, Edit2, Trash2, Clock, MapPin } from 'lucide-react';
 import { TimetableDialog } from './TimetableDialog';
+import { useTimetableEntries, useCreateTimetableEntry, useUpdateTimetableEntry, useDeleteTimetableEntry } from '@/hooks/useTimetable';
+import { useToast } from '@/hooks/use-toast';
 
-interface TimetableEntry {
-  id: string;
+interface TimetableEntryUI {
+  _id?: string;
   subject: string;
   day: string;
   startTime: string;
@@ -21,53 +23,47 @@ const TIME_SLOTS = [
 ];
 
 export function TimetableGrid() {
-  const [entries, setEntries] = useState<TimetableEntry[]>([
-    {
-      id: '1',
-      subject: 'Mathematics',
-      day: 'Monday',
-      startTime: '9:00 AM',
-      endTime: '10:00 AM',
-      location: 'Room 101',
-      color: 'bg-gradient-primary',
-    },
-    {
-      id: '2',
-      subject: 'Physics',
-      day: 'Tuesday',
-      startTime: '10:00 AM',
-      endTime: '11:00 AM',
-      location: 'Lab 202',
-      color: 'bg-gradient-secondary',
-    },
-  ]);
-  
+  const { toast } = useToast();
+  const { data: entries = [] } = useTimetableEntries();
+  const createEntry = useCreateTimetableEntry();
+  const updateEntry = useUpdateTimetableEntry();
+  const deleteEntry = useDeleteTimetableEntry();
+
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingEntry, setEditingEntry] = useState<TimetableEntry | null>(null);
+  const [editingEntry, setEditingEntry] = useState<TimetableEntryUI | null>(null);
 
   const getEntryForSlot = (day: string, time: string) => {
-    return entries.find(
-      (entry) => entry.day === day && entry.startTime === time
-    );
+    return entries.find((entry) => entry.day === day && entry.startTime === time);
   };
 
-  const handleAddEntry = (newEntry: Omit<TimetableEntry, 'id'>) => {
-    const entry = {
-      ...newEntry,
-      id: Date.now().toString(),
-    };
-    setEntries([...entries, entry]);
+  const handleAddEntry = async (newEntry: Omit<TimetableEntryUI, '_id'>) => {
+    try {
+      await createEntry.mutateAsync(newEntry as any);
+      toast({ title: 'Class added' });
+    } catch (err: any) {
+      toast({ title: 'Add failed', description: err?.response?.data?.error?.message ?? 'Try again', variant: 'destructive' });
+    }
   };
 
-  const handleEditEntry = (updatedEntry: TimetableEntry) => {
-    setEntries(entries.map(e => e.id === updatedEntry.id ? updatedEntry : e));
+  const handleEditEntry = async (updatedEntry: TimetableEntryUI) => {
+    try {
+      await updateEntry.mutateAsync({ id: String(updatedEntry._id), update: updatedEntry as any });
+      toast({ title: 'Class updated' });
+    } catch (err: any) {
+      toast({ title: 'Update failed', description: err?.response?.data?.error?.message ?? 'Try again', variant: 'destructive' });
+    }
   };
 
-  const handleDeleteEntry = (id: string) => {
-    setEntries(entries.filter(e => e.id !== id));
+  const handleDeleteEntry = async (id: string) => {
+    try {
+      await deleteEntry.mutateAsync(id);
+      toast({ title: 'Class deleted' });
+    } catch (err: any) {
+      toast({ title: 'Delete failed', description: err?.response?.data?.error?.message ?? 'Try again', variant: 'destructive' });
+    }
   };
 
-  const openEditDialog = (entry: TimetableEntry) => {
+  const openEditDialog = (entry: any) => {
     setEditingEntry(entry);
     setDialogOpen(true);
   };
@@ -90,7 +86,6 @@ export function TimetableGrid() {
       <div className="overflow-x-auto">
         <div className="min-w-[800px]">
           <div className="grid grid-cols-6 gap-2">
-            {/* Header row */}
             <div className="p-3 font-semibold">Time</div>
             {DAYS.map((day) => (
               <div key={day} className="p-3 font-semibold text-center bg-gradient-primary text-primary-foreground rounded-lg">
@@ -98,14 +93,13 @@ export function TimetableGrid() {
               </div>
             ))}
 
-            {/* Time slots */}
             {TIME_SLOTS.map((time) => (
               <>
                 <div key={`time-${time}`} className="p-3 text-sm text-muted-foreground font-medium">
                   {time}
                 </div>
                 {DAYS.map((day) => {
-                  const entry = getEntryForSlot(day, time);
+                  const entry: any = getEntryForSlot(day, time);
                   return (
                     <div key={`${day}-${time}`} className="relative min-h-[80px]">
                       {entry ? (
@@ -135,7 +129,7 @@ export function TimetableGrid() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDeleteEntry(entry.id);
+                                handleDeleteEntry(entry._id);
                               }}
                               className="p-1 bg-background/20 rounded hover:bg-background/30"
                             >
@@ -164,7 +158,7 @@ export function TimetableGrid() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onSave={editingEntry ? handleEditEntry : handleAddEntry}
-        entry={editingEntry}
+        entry={editingEntry as any}
       />
     </div>
   );

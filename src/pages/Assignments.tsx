@@ -10,61 +10,39 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from '@/components/ui/badge';
 import { ClipboardList, Plus, Calendar, Clock, CheckCircle2, Circle, AlertCircle, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAssignments, useCreateAssignment, useUpdateAssignment, useDeleteAssignment } from '@/hooks/useAssignments';
 
-interface Assignment {
-  id: string;
+type AStatus = 'pending' | 'in-progress' | 'completed';
+
+type AssignmentForm = {
   title: string;
   description: string;
   subject: string;
   dueDate: string;
-  status: 'pending' | 'in-progress' | 'completed';
+  status: AStatus;
   priority: 'low' | 'medium' | 'high';
-  attachments?: string[];
-}
+};
 
 export default function Assignments() {
   const { toast } = useToast();
-  const [assignments, setAssignments] = useState<Assignment[]>([
-    {
-      id: '1',
-      title: 'Physics Lab Report',
-      description: 'Complete the lab report on electromagnetic induction experiment',
-      subject: 'Physics',
-      dueDate: '2024-01-20',
-      status: 'in-progress',
-      priority: 'high'
-    },
-    {
-      id: '2',
-      title: 'Calculus Problem Set 5',
-      description: 'Solve problems 1-20 from Chapter 5 on Integration',
-      subject: 'Mathematics',
-      dueDate: '2024-01-22',
-      status: 'pending',
-      priority: 'medium'
-    },
-    {
-      id: '3',
-      title: 'Literature Essay',
-      description: 'Write a 1500-word essay on Shakespeare\'s Hamlet',
-      subject: 'Literature',
-      dueDate: '2024-01-25',
-      status: 'completed',
-      priority: 'low'
-    }
-  ]);
-
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState('all');
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<AssignmentForm>({
     title: '',
     description: '',
     subject: '',
     dueDate: '',
-    status: 'pending' as Assignment['status'],
-    priority: 'medium' as Assignment['priority']
+    status: 'pending',
+    priority: 'medium'
   });
+
+  const { data, isLoading } = useAssignments({ status: filterStatus === 'all' ? undefined : filterStatus });
+  const createMutation = useCreateAssignment();
+  const updateMutation = useUpdateAssignment();
+  const deleteMutation = useDeleteAssignment();
+
+  const assignments = data?.items ?? [];
 
   const subjects = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'Computer Science', 'History', 'Literature'];
 
@@ -98,88 +76,63 @@ export default function Assignments() {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.title || !formData.subject || !formData.dueDate) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      });
+      toast({ title: 'Error', description: 'Please fill in all required fields', variant: 'destructive' });
       return;
     }
 
-    if (editingAssignment) {
-      setAssignments(assignments.map(a => 
-        a.id === editingAssignment.id ? { ...a, ...formData } : a
-      ));
-      toast({
-        title: "Success",
-        description: "Assignment updated successfully",
-      });
-    } else {
-      const newAssignment: Assignment = {
-        id: Date.now().toString(),
-        ...formData
-      };
-      setAssignments([newAssignment, ...assignments]);
-      toast({
-        title: "Success",
-        description: "Assignment added successfully",
-      });
+    try {
+      if (editingId) {
+        await updateMutation.mutateAsync({ id: editingId, update: formData });
+        toast({ title: 'Success', description: 'Assignment updated successfully' });
+      } else {
+        await createMutation.mutateAsync(formData);
+        toast({ title: 'Success', description: 'Assignment added successfully' });
+      }
+      setDialogOpen(false);
+      setEditingId(null);
+      setFormData({ title: '', description: '', subject: '', dueDate: '', status: 'pending', priority: 'medium' });
+    } catch (err: any) {
+      toast({ title: 'Save failed', description: err?.response?.data?.error?.message ?? 'Try again', variant: 'destructive' });
     }
-
-    setDialogOpen(false);
-    setEditingAssignment(null);
-    setFormData({
-      title: '',
-      description: '',
-      subject: '',
-      dueDate: '',
-      status: 'pending',
-      priority: 'medium'
-    });
   };
 
-  const handleEdit = (assignment: Assignment) => {
-    setEditingAssignment(assignment);
+  const handleEdit = (a: any) => {
+    setEditingId(a._id);
     setFormData({
-      title: assignment.title,
-      description: assignment.description,
-      subject: assignment.subject,
-      dueDate: assignment.dueDate,
-      status: assignment.status,
-      priority: assignment.priority
+      title: a.title || '',
+      description: a.description || '',
+      subject: a.subject || '',
+      dueDate: a.dueDate ? a.dueDate.substring(0, 10) : '',
+      status: (a.status as AStatus) || 'pending',
+      priority: a.priority || 'medium',
     });
     setDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    setAssignments(assignments.filter(a => a.id !== id));
-    toast({
-      title: "Success",
-      description: "Assignment deleted successfully",
-    });
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteMutation.mutateAsync(id);
+      toast({ title: 'Success', description: 'Assignment deleted successfully' });
+    } catch (err: any) {
+      toast({ title: 'Delete failed', description: err?.response?.data?.error?.message ?? 'Try again', variant: 'destructive' });
+    }
   };
 
-  const handleStatusChange = (id: string, status: Assignment['status']) => {
-    setAssignments(assignments.map(a => 
-      a.id === id ? { ...a, status } : a
-    ));
-    toast({
-      title: "Success",
-      description: `Assignment marked as ${status}`,
-    });
+  const handleStatusChange = async (id: string, status: AStatus) => {
+    try {
+      await updateMutation.mutateAsync({ id, update: { status } });
+      toast({ title: 'Success', description: `Assignment marked as ${status}` });
+    } catch (err: any) {
+      toast({ title: 'Update failed', description: err?.response?.data?.error?.message ?? 'Try again', variant: 'destructive' });
+    }
   };
-
-  const filteredAssignments = assignments.filter(assignment => {
-    if (filterStatus === 'all') return true;
-    return assignment.status === filterStatus;
-  });
 
   const upcomingDeadlines = assignments
-    .filter(a => a.status !== 'completed')
-    .filter(a => getDaysUntilDue(a.dueDate) <= 3 && getDaysUntilDue(a.dueDate) >= 0)
-    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+    .filter((a: any) => a.status !== 'completed')
+    .filter((a: any) => a.dueDate && getDaysUntilDue(a.dueDate) <= 3 && getDaysUntilDue(a.dueDate) >= 0)
+    .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
 
   return (
     <div className="min-h-screen bg-background">
@@ -190,7 +143,6 @@ export default function Assignments() {
           <p className="text-muted-foreground">Manage your assignments and never miss a deadline</p>
         </div>
 
-        {/* Upcoming Deadlines Alert */}
         {upcomingDeadlines.length > 0 && (
           <Card className="mb-6 border-destructive/50 bg-destructive/5">
             <CardHeader className="pb-3">
@@ -201,10 +153,10 @@ export default function Assignments() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {upcomingDeadlines.map(assignment => {
+                {upcomingDeadlines.map((assignment: any) => {
                   const daysLeft = getDaysUntilDue(assignment.dueDate);
                   return (
-                    <div key={assignment.id} className="flex items-center justify-between p-2 rounded-lg bg-background">
+                    <div key={assignment._id} className="flex items-center justify-between p-2 rounded-lg bg-background">
                       <div>
                         <p className="font-medium">{assignment.title}</p>
                         <p className="text-sm text-muted-foreground">{assignment.subject}</p>
@@ -220,7 +172,6 @@ export default function Assignments() {
           </Card>
         )}
 
-        {/* Actions Bar */}
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <Select value={filterStatus} onValueChange={setFilterStatus}>
             <SelectTrigger className="w-full md:w-[200px]">
@@ -239,14 +190,16 @@ export default function Assignments() {
           </Button>
         </div>
 
-        {/* Assignments List */}
+        {isLoading && (
+          <Card className="mb-4"><CardContent>Loading...</CardContent></Card>
+        )}
+
         <div className="space-y-4">
-          {filteredAssignments.map(assignment => {
-            const daysLeft = getDaysUntilDue(assignment.dueDate);
-            const isOverdue = daysLeft < 0 && assignment.status !== 'completed';
-            
+          {assignments.map((assignment: any) => {
+            const daysLeft = assignment.dueDate ? getDaysUntilDue(assignment.dueDate) : undefined;
+            const isOverdue = daysLeft !== undefined && daysLeft < 0 && assignment.status !== 'completed';
             return (
-              <Card key={assignment.id} className={isOverdue ? 'border-destructive' : ''}>
+              <Card key={assignment._id} className={isOverdue ? 'border-destructive' : ''}>
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3">
@@ -255,14 +208,16 @@ export default function Assignments() {
                         <CardTitle className="text-lg">{assignment.title}</CardTitle>
                         <CardDescription className="mt-1">{assignment.description}</CardDescription>
                         <div className="flex flex-wrap items-center gap-2 mt-3">
-                          <Badge variant="outline">{assignment.subject}</Badge>
+                          {assignment.subject && <Badge variant="outline">{assignment.subject}</Badge>}
                           <Badge variant={getPriorityColor(assignment.priority)}>
                             {assignment.priority} priority
                           </Badge>
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Calendar className="h-3 w-3" />
-                            {new Date(assignment.dueDate).toLocaleDateString()}
-                          </div>
+                          {assignment.dueDate && (
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(assignment.dueDate).toLocaleDateString()}
+                            </div>
+                          )}
                           {isOverdue && (
                             <Badge variant="destructive">Overdue</Badge>
                           )}
@@ -272,7 +227,7 @@ export default function Assignments() {
                     <div className="flex gap-2">
                       <Select
                         value={assignment.status}
-                        onValueChange={(value) => handleStatusChange(assignment.id, value as Assignment['status'])}
+                        onValueChange={(value) => handleStatusChange(assignment._id, value as AStatus)}
                       >
                         <SelectTrigger className="w-[130px]">
                           <SelectValue />
@@ -283,18 +238,10 @@ export default function Assignments() {
                           <SelectItem value="completed">Completed</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleEdit(assignment)}
-                      >
+                      <Button size="sm" variant="ghost" onClick={() => handleEdit(assignment)}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDelete(assignment.id)}
-                      >
+                      <Button size="sm" variant="ghost" onClick={() => handleDelete(assignment._id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -305,7 +252,7 @@ export default function Assignments() {
           })}
         </div>
 
-        {filteredAssignments.length === 0 && (
+        {assignments.length === 0 && !isLoading && (
           <Card className="text-center py-12">
             <CardContent>
               <ClipboardList className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -314,11 +261,10 @@ export default function Assignments() {
           </Card>
         )}
 
-        {/* Add/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editingAssignment ? 'Edit Assignment' : 'Add New Assignment'}</DialogTitle>
+              <DialogTitle>{editingId ? 'Edit Assignment' : 'Add New Assignment'}</DialogTitle>
               <DialogDescription>
                 Track your academic assignments and deadlines
               </DialogDescription>
@@ -326,29 +272,15 @@ export default function Assignments() {
             <div className="space-y-4">
               <div>
                 <Label htmlFor="title">Title *</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({...formData, title: e.target.value})}
-                  placeholder="e.g., Physics Lab Report"
-                />
+                <Input id="title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="e.g., Physics Lab Report" />
               </div>
               <div>
                 <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  placeholder="Assignment details..."
-                  rows={3}
-                />
+                <Textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Assignment details..." rows={3} />
               </div>
               <div>
                 <Label htmlFor="subject">Subject *</Label>
-                <Select 
-                  value={formData.subject} 
-                  onValueChange={(value) => setFormData({...formData, subject: value})}
-                >
+                <Select value={formData.subject} onValueChange={(value) => setFormData({ ...formData, subject: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a subject" />
                   </SelectTrigger>
@@ -361,19 +293,11 @@ export default function Assignments() {
               </div>
               <div>
                 <Label htmlFor="dueDate">Due Date *</Label>
-                <Input
-                  id="dueDate"
-                  type="date"
-                  value={formData.dueDate}
-                  onChange={(e) => setFormData({...formData, dueDate: e.target.value})}
-                />
+                <Input id="dueDate" type="date" value={formData.dueDate} onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })} />
               </div>
               <div>
                 <Label htmlFor="priority">Priority</Label>
-                <Select 
-                  value={formData.priority} 
-                  onValueChange={(value) => setFormData({...formData, priority: value as Assignment['priority']})}
-                >
+                <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value as any })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -386,10 +310,7 @@ export default function Assignments() {
               </div>
               <div>
                 <Label htmlFor="status">Status</Label>
-                <Select 
-                  value={formData.status} 
-                  onValueChange={(value) => setFormData({...formData, status: value as Assignment['status']})}
-                >
+                <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value as AStatus })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -402,22 +323,11 @@ export default function Assignments() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => {
-                setDialogOpen(false);
-                setEditingAssignment(null);
-                setFormData({
-                  title: '',
-                  description: '',
-                  subject: '',
-                  dueDate: '',
-                  status: 'pending',
-                  priority: 'medium'
-                });
-              }}>
+              <Button variant="outline" onClick={() => { setDialogOpen(false); setEditingId(null); setFormData({ title: '', description: '', subject: '', dueDate: '', status: 'pending', priority: 'medium' }); }}>
                 Cancel
               </Button>
-              <Button onClick={handleSubmit}>
-                {editingAssignment ? 'Update' : 'Add'} Assignment
+              <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>
+                {editingId ? 'Update' : 'Add'} Assignment
               </Button>
             </DialogFooter>
           </DialogContent>

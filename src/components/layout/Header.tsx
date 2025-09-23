@@ -2,12 +2,15 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Menu, X, BookOpen, Calendar, FileText, ClipboardList, Bell, Users } from 'lucide-react';
 import { useState } from 'react';
+import { useMe, useLogout } from '@/hooks/useAuth';
 
 export function Header() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const isAuthenticated = false; // This will come from auth context later
+  const { data: meData } = useMe();
+  const logout = useLogout();
+  const isAuthenticated = Boolean(meData?.user);
 
   const navItems = [
     { path: '/timetable', label: 'Timetable', icon: Calendar },
@@ -29,7 +32,6 @@ export function Header() {
           </span>
         </Link>
 
-        {/* Desktop Navigation */}
         {isAuthenticated && (
           <nav className="hidden md:flex mx-6 flex-1 items-center space-x-6">
             {navItems.map((item) => {
@@ -63,15 +65,23 @@ export function Header() {
           ) : (
             <>
               <Button variant="ghost" size="sm" onClick={() => navigate('/profile')}>
-                Profile
+                {meData?.user?.name ?? 'Profile'}
               </Button>
-              <Button variant="outline" size="sm">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await logout.mutateAsync();
+                    navigate('/');
+                  } catch {}
+                }}
+              >
                 Logout
               </Button>
             </>
           )}
 
-          {/* Mobile menu button */}
           <button
             className="inline-flex items-center justify-center rounded-md md:hidden"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -81,7 +91,6 @@ export function Header() {
         </div>
       </div>
 
-      {/* Mobile Navigation */}
       {mobileMenuOpen && isAuthenticated && (
         <nav className="md:hidden border-t">
           <div className="space-y-1 px-4 pb-3 pt-2">
